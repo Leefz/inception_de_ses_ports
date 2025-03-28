@@ -2,62 +2,67 @@ services:
   nginx:
     build: requirements/nginx
     container_name: nginx
-    image: nginx:tar
     env_file:
       - .env
     depends_on:
       - wordpress
     ports:
-      - target: 443
-        published: 443
+      - "443:443"
     volumes:
       - wordpress:/var/www/html
     networks:
       - inception
     restart:
-      on-failure
+      unless-stopped
 
   mariadb:
     build: requirements/mariadb
     container_name: mariadb
-    image: mariadb:tar
+    expose:
+      - 3306
     env_file:
       - .env
     volumes:
-      - db:/var/lib/mysql
+      - mariadb:/var/lib/mysql
     networks:
       - inception
     restart:
-      on-failure
+      unless-stopped    
+    healthcheck:
+      test: mysqladmin ping --host=localhost -p${INCEPTION_MY_SQL_PASS}
+      interval: 5s
+      timeout: 1s
+      retries: 20
+      start_period: 5s
 
   wordpress:
     build: requirements/wordpress
     container_name: wordpress
-    image: wordpress:tar
     env_file:
       - .env
-    depends_on:
-      - mariadb
     volumes:
       - wordpress:/var/www/html
     networks:
       - inception
     restart:
-      on-failure
+      unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy      
 
 volumes:
   wordpress:
     name: wordpress
     driver: local
     driver_opts:
-      type: bind
+      type: none
       o: bind
       device: "/home/${INCEPTION_LOGIN}/data/wordpress"
-  db:
-    name: db
+  mariadb:
+    name: mariadb
     driver: local
     driver_opts:
-      type: bind
+      type: none
       o: bind
       device: "/home/${INCEPTION_LOGIN}/data/database"
 
